@@ -12,6 +12,11 @@
   --text-muted: #8FA690;
   --white: #FFFFFF;
   --border: #D4E6D0;
+  --hero-frame: #4A5A4A;
+  --hero-dirty: #C4B59A;
+  --hero-dust: #A09070;
+  --hero-wire-muted: #999999;
+  --hero-water: #6BC5E3;
   --transparent: transparent;
   --shadow-soft: color-mix(in srgb, var(--text-dark) 10%, var(--transparent));
   --shadow-medium: color-mix(in srgb, var(--text-dark) 16%, var(--transparent));
@@ -353,6 +358,44 @@ main {
   max-width: 690px;
 }
 
+.hero-copy h1 {
+  color: var(--text-dark);
+  font-size: clamp(3rem, 5vw, 5.5rem);
+  line-height: 1.1;
+  transition: color 0.45s ease;
+}
+
+.hero-copy.is-before h1 {
+  color: var(--text-muted);
+}
+
+.hero-copy .hero-line {
+  color: inherit;
+  display: block;
+  font-family: var(--sans);
+  font-style: normal;
+  font-weight: 800;
+}
+
+.hero-copy .hero-shine-word {
+  color: var(--solar-amber);
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 700;
+}
+
+.hero-copy.is-before .hero-shine-word {
+  color: var(--text-muted);
+}
+
+.hero-copy.is-clean h1 {
+  color: var(--text-dark);
+}
+
+.hero-copy.is-clean .hero-shine-word {
+  color: var(--solar-amber);
+}
+
 .hero-subtitle {
   color: var(--text-body);
   font-size: clamp(1.08rem, 2vw, 1.3rem);
@@ -387,56 +430,78 @@ main {
 }
 
 .hero-art {
-  min-height: 430px;
+  align-items: center;
+  display: grid;
+  justify-items: center;
+  min-height: 480px;
   position: relative;
-}
-
-.sun-halo {
-  background: var(--solar-amber);
-  border-radius: 999px;
-  filter: blur(80px);
-  height: 260px;
-  opacity: 0.15;
-  position: absolute;
-  right: 12%;
-  top: 4%;
-  width: 260px;
 }
 
 .solar-illustration {
+  height: auto;
+  max-width: 420px;
   position: relative;
+  width: min(100%, 420px);
   z-index: 1;
 }
 
-.panel-shadow {
-  fill: var(--dark-faint);
-}
-
-.panel-frame {
+.story-panel-frame {
   fill: var(--white);
-  stroke: var(--green-primary);
-  stroke-linejoin: round;
-  stroke-width: 4;
+  stroke: var(--hero-frame);
+  stroke-width: 3;
 }
 
-.panel-cell {
-  fill: var(--solar-soft);
-  stroke: var(--green-light);
-  stroke-linejoin: round;
-  stroke-width: 2.5;
-}
-
-.roof-line {
-  stroke: var(--green-primary);
-  stroke-linecap: round;
-  stroke-width: 8;
-}
-
-.roof-base {
+.story-panel-glass {
   fill: var(--bg-section);
   stroke: var(--border);
-  stroke-linejoin: round;
-  stroke-width: 3;
+  stroke-width: 1.5;
+}
+
+.story-cell {
+  stroke: var(--white);
+  stroke-width: 2;
+}
+
+.dust-mark {
+  fill: var(--hero-dust);
+}
+
+.water-drop {
+  fill: var(--hero-water);
+  opacity: 0.8;
+}
+
+.story-stand,
+.story-base {
+  fill: var(--hero-frame);
+}
+
+.story-wire {
+  fill: none;
+  stroke-linecap: round;
+  stroke-width: 2;
+}
+
+.wire-pulse {
+  fill: var(--solar-amber);
+  offset-path: path('M162 320C154 358 129 380 100 428');
+}
+
+.wire-pulse-right {
+  offset-path: path('M226 320C237 360 268 386 302 432');
+}
+
+.story-label {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin-top: -1.25rem;
+  text-transform: uppercase;
+}
+
+.story-label.is-clean {
+  color: var(--green-primary);
 }
 
 .problem-section {
@@ -1117,8 +1182,13 @@ legend {
     min-height: auto;
   }
 
+  .hero-copy {
+    order: 2;
+  }
+
   .hero-art {
-    min-height: 320px;
+    min-height: 420px;
+    order: 1;
   }
 
   .stats-grid,
