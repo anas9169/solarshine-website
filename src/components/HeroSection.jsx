@@ -9,10 +9,26 @@ const beats = {
   clean: 'clean',
 }
 
+const PANEL = {
+  frame: { x: 42, y: 36, w: 308, h: 260 },
+  bezel: { x: 50, y: 44, w: 292, h: 244 },
+  content: { x: 58, y: 52, w: 276, h: 232 },
+  cols: 3,
+  rows: 4,
+  gap: 4,
+  cellRx: 3,
+  bottom: 52 + 232,
+}
+
+const CELL_W = (PANEL.content.w - (PANEL.cols - 1) * PANEL.gap) / PANEL.cols
+const CELL_H = (PANEL.content.h - (PANEL.rows - 1) * PANEL.gap) / PANEL.rows
+
 const cells = Array.from({ length: 12 }, (_, index) => ({
   id: index,
-  x: 58 + (index % 3) * 92,
-  y: 52 + Math.floor(index / 3) * 58,
+  col: index % PANEL.cols,
+  row: Math.floor(index / PANEL.cols),
+  x: PANEL.content.x + (index % PANEL.cols) * (CELL_W + PANEL.gap),
+  y: PANEL.content.y + Math.floor(index / PANEL.cols) * (CELL_H + PANEL.gap),
 }))
 
 const dustMarks = [
@@ -26,11 +42,29 @@ const dustMarks = [
   { cx: 304, cy: 258, rx: 11, ry: 5, rotate: 16 },
 ]
 
-const droplets = [
-  { d: 'M0-18C9-6 14 3 14 11c0 9-6 15-14 15s-14-6-14-15c0-8 5-17 14-29Z', x: 118, y: 42 },
-  { d: 'M0-16C8-5 12 3 12 10c0 8-5 13-12 13s-12-5-12-13c0-7 4-15 12-26Z', x: 210, y: 20 },
-  { d: 'M0-18C9-6 14 3 14 11c0 9-6 15-14 15s-14-6-14-15c0-8 5-17 14-29Z', x: 286, y: 58 },
-  { d: 'M0-15C7-5 11 2 11 9c0 7-5 12-11 12S-11 16-11 9c0-7 4-14 11-24Z', x: 166, y: 88 },
+const STREAM_X_RATIOS = [0.18, 0.32, 0.5, 0.65, 0.8]
+const STREAM_HEIGHTS = [28, 34, 40, 32, 36]
+const STREAM_JITTERS = [-3, 4, -4, 3, -2]
+const SPLASH_ANGLES = [-40, -20, 0, 20, 40]
+
+const streams = STREAM_X_RATIOS.map((ratio, index) => ({
+  id: index,
+  x: PANEL.frame.x + PANEL.frame.w * ratio,
+  height: STREAM_HEIGHTS[index],
+  jitter: STREAM_JITTERS[index],
+  delay: index * 0.08,
+}))
+
+function teardropPath(height) {
+  const w = 3
+  const h = height / 2
+  return `M0 ${-h} C${w} ${-h * 0.35} ${w} ${h * 0.55} 0 ${h} C${-w} ${h * 0.55} ${-w} ${-h * 0.35} 0 ${-h} Z`
+}
+
+const rivulets = [
+  `M ${PANEL.content.x + 48} ${PANEL.content.y + 18} C ${PANEL.content.x + 42} ${PANEL.content.y + 90} ${PANEL.content.x + 54} ${PANEL.content.y + 150} ${PANEL.content.x + 46} ${PANEL.bottom - 8}`,
+  `M ${PANEL.content.x + 138} ${PANEL.content.y + 12} C ${PANEL.content.x + 146} ${PANEL.content.y + 88} ${PANEL.content.x + 132} ${PANEL.content.y + 158} ${PANEL.content.x + 140} ${PANEL.bottom - 6}`,
+  `M ${PANEL.content.x + 228} ${PANEL.content.y + 20} C ${PANEL.content.x + 220} ${PANEL.content.y + 96} ${PANEL.content.x + 234} ${PANEL.content.y + 162} ${PANEL.content.x + 226} ${PANEL.bottom - 10}`,
 ]
 
 function useHeroBeat() {
@@ -43,8 +77,8 @@ function useHeroBeat() {
 
     let restartTimer
     const durations = {
-      [beats.dirty]: 1500,
-      [beats.washing]: 1000,
+      [beats.dirty]: 2000,
+      [beats.washing]: 1400,
       [beats.clean]: 3000,
     }
 
@@ -56,7 +90,7 @@ function useHeroBeat() {
         restartTimer = window.setTimeout(() => {
           setBeat(beats.dirty)
           setIsRestarting(false)
-        }, 520)
+        }, 500)
       }
     }, durations[beat])
 
@@ -73,17 +107,138 @@ function useHeroBeat() {
   }
 }
 
+function WaterStreams({ active }) {
+  if (!active) return null
+
+  return (
+    <>
+      {streams.map((stream) => (
+        <motion.g
+          key={`stream-${stream.id}`}
+          initial={{ x: stream.x, y: -60, opacity: 0.85 }}
+          animate={{
+            x: [stream.x, stream.x, stream.x + stream.jitter, stream.x + stream.jitter],
+            y: [-60, PANEL.bottom, -60, PANEL.bottom],
+            opacity: [0.85, 0.85, 0.85, 0.85],
+          }}
+          transition={{
+            duration: 0.9,
+            times: [0, 0.5, 0.5, 1],
+            delay: stream.delay,
+            ease: 'easeIn',
+          }}
+        >
+          <path d={teardropPath(stream.height)} fill="#5BB8D4" opacity={0.85} />
+        </motion.g>
+      ))}
+    </>
+  )
+}
+
+function ImpactSplashes({ active }) {
+  if (!active) return null
+
+  return (
+    <>
+      {streams.flatMap((stream) =>
+        [0, 1].map((cycle) => {
+          const hitDelay = stream.delay + 0.45 + cycle * 0.45
+          const splashX = cycle === 0 ? stream.x : stream.x + stream.jitter
+          return SPLASH_ANGLES.map((angle) => {
+            const rad = (angle * Math.PI) / 180
+            return (
+              <motion.ellipse
+                key={`splash-${stream.id}-${cycle}-${angle}`}
+                rx={3}
+                ry={2}
+                fill="#A8DCF0"
+                cx={splashX}
+                cy={PANEL.bottom}
+                initial={{ scale: 0, opacity: 1, x: 0, y: 0 }}
+                animate={{ scale: 1, opacity: 0, x: Math.sin(rad) * 10, y: -12 }}
+                transition={{
+                  duration: 0.3,
+                  delay: hitDelay,
+                  ease: 'easeOut',
+                }}
+              />
+            )
+          })
+        }),
+      )}
+    </>
+  )
+}
+
+function MistLayer({ active }) {
+  if (!active) return null
+
+  const cx = PANEL.frame.x + PANEL.frame.w / 2
+  const cy = PANEL.bottom - 4
+
+  return (
+    <motion.ellipse
+      cx={cx}
+      cy={cy}
+      rx={80}
+      ry={20}
+      fill="#C8EAF5"
+      filter="url(#mistBlur)"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: [0, 0.4, 0.4, 0] }}
+      transition={{ duration: 1, times: [0, 0.1, 0.8, 1], ease: 'easeInOut', delay: 0.4 }}
+    />
+  )
+}
+
+function Rivulets({ active, persistIntoClean }) {
+  if (!active && !persistIntoClean) return null
+
+  const showFade = active || persistIntoClean
+
+  return (
+    <>
+      {rivulets.map((d, index) => (
+        <motion.path
+          key={`rivulet-${index}`}
+          d={d}
+          fill="none"
+          stroke="#7ECDE8"
+          strokeWidth={1.5}
+          strokeLinecap="round"
+          initial={{ pathLength: 0, opacity: 0 }}
+          animate={{
+            pathLength: 1,
+            opacity: showFade ? [0, 0.6, 0.6, 0] : 0,
+          }}
+          transition={{
+            pathLength: { duration: 0.8, delay: 0.6, ease: 'easeInOut' },
+            opacity: { duration: 1.4, delay: 0.6, times: [0, 0.05, 0.43, 1], ease: 'easeOut' },
+          }}
+        />
+      ))}
+    </>
+  )
+}
+
 function HeroStoryPanel({ beat, isRestarting, reducedMotion }) {
   const isDirty = beat === beats.dirty
   const isWashing = beat === beats.washing
   const isClean = beat === beats.clean
   const label = isClean ? 'After cleaning' : 'Before cleaning'
 
-  const cellAnimate = useMemo(() => {
-    if (isDirty) return 'var(--hero-dirty)'
-    if (isWashing || isClean) return 'var(--green-light)'
-    return 'var(--hero-dirty)'
+  const cellFill = useMemo(() => {
+    if (isDirty) return '#C8B99A'
+    if (isWashing || isClean) return 'url(#cleanCellGradient)'
+    return '#C8B99A'
   }, [isDirty, isWashing, isClean])
+
+  const dustOpacity = isDirty ? 0.3 : isWashing ? 0 : 0
+  const dustTransition = isWashing
+    ? { duration: 0.4, delay: 0.9, ease: 'easeOut' }
+    : { duration: 0.35, ease: 'easeInOut' }
+
+  const standCenterX = PANEL.frame.x + PANEL.frame.w / 2
 
   return (
     <motion.div
@@ -96,12 +251,39 @@ function HeroStoryPanel({ beat, isRestarting, reducedMotion }) {
         <title>Solar panel cleaning sequence</title>
         <defs>
           <clipPath id="storyPanelClip">
-            <path d="M52 36h288c14 0 26 12 26 26v232c0 14-12 26-26 26H52c-14 0-26-12-26-26V62c0-14 12-26 26-26Z" />
+            <rect
+              x={PANEL.bezel.x}
+              y={PANEL.bezel.y}
+              width={PANEL.bezel.w}
+              height={PANEL.bezel.h}
+              rx={4}
+            />
           </clipPath>
-          <linearGradient id="cleanShimmer" x1="0" x2="1" y1="0" y2="1">
-            <stop offset="0" stopColor="var(--white)" stopOpacity="0" />
-            <stop offset="0.5" stopColor="var(--white)" stopOpacity="0.15" />
-            <stop offset="1" stopColor="var(--white)" stopOpacity="0" />
+
+          <filter id="dustTexture" x="-20%" y="-20%" width="140%" height="140%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves={3} result="noise" />
+            <feColorMatrix
+              type="matrix"
+              values="0 0 0 0 0.55  0 0 0 0 0.48  0 0 0 0 0.38  0 0 0 1 0"
+              in="noise"
+              result="dustColor"
+            />
+            <feBlend in="SourceGraphic" in2="dustColor" mode="multiply" />
+          </filter>
+
+          <filter id="mistBlur" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="8" />
+          </filter>
+
+          <linearGradient id="cleanCellGradient" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#7DCF86" />
+            <stop offset="1" stopColor="#4FA85A" />
+          </linearGradient>
+
+          <linearGradient id="cleanShimmer" gradientUnits="objectBoundingBox" x1="-1" y1="0" x2="0" y2="0">
+            <stop offset="0" stopColor="#ffffff" stopOpacity="0" />
+            <stop offset="0.5" stopColor="#ffffff" stopOpacity="0.25" />
+            <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
           </linearGradient>
         </defs>
 
@@ -111,41 +293,90 @@ function HeroStoryPanel({ beat, isRestarting, reducedMotion }) {
         >
           <motion.path
             className="story-wire story-wire-left"
-            d="M162 320C154 358 129 380 100 428"
-            animate={{ stroke: isClean ? 'var(--solar-amber)' : 'var(--hero-wire-muted)' }}
+            d={`M${PANEL.frame.x + 20} ${PANEL.frame.y + PANEL.frame.h} C${PANEL.frame.x - 8} ${PANEL.frame.y + PANEL.frame.h + 38} ${PANEL.frame.x - 34} ${PANEL.frame.y + PANEL.frame.h + 60} ${PANEL.frame.x - 62} ${PANEL.frame.y + PANEL.frame.h + 108}`}
+            fill="none"
+            strokeWidth={1.5}
+            strokeLinecap="round"
+            animate={{ stroke: isClean ? 'var(--solar-amber)' : '#888888' }}
             transition={{ duration: 0.8, ease: 'easeInOut' }}
           />
           <motion.path
             className="story-wire story-wire-right"
-            d="M226 320C237 360 268 386 302 432"
-            animate={{ stroke: isClean ? 'var(--solar-amber)' : 'var(--hero-wire-muted)' }}
+            d={`M${PANEL.frame.x + PANEL.frame.w - 20} ${PANEL.frame.y + PANEL.frame.h} C${PANEL.frame.x + PANEL.frame.w + 11} ${PANEL.frame.y + PANEL.frame.h + 40} ${PANEL.frame.x + PANEL.frame.w + 42} ${PANEL.frame.y + PANEL.frame.h + 66} ${PANEL.frame.x + PANEL.frame.w + 76} ${PANEL.frame.y + PANEL.frame.h + 112}`}
+            fill="none"
+            strokeWidth={1.5}
+            strokeLinecap="round"
+            animate={{ stroke: isClean ? 'var(--solar-amber)' : '#888888' }}
             transition={{ duration: 0.8, ease: 'easeInOut' }}
           />
 
-          <rect className="story-stand" x="191" y="318" width="9" height="78" rx="4" />
-          <rect className="story-base" x="144" y="394" width="104" height="12" rx="6" />
+          <rect
+            x={standCenterX - 4}
+            y={PANEL.frame.y + PANEL.frame.h}
+            width={8}
+            height={50}
+            fill="#4A5A4A"
+          />
+          <rect
+            x={standCenterX - 30}
+            y={PANEL.frame.y + PANEL.frame.h + 50}
+            width={60}
+            height={6}
+            rx={3}
+            fill="#3A4A3A"
+          />
 
-          <rect className="story-panel-frame" x="26" y="36" width="340" height="284" rx="18" />
-          <rect className="story-panel-glass" x="42" y="52" width="308" height="252" rx="12" />
+          <rect
+            x={PANEL.frame.x}
+            y={PANEL.frame.y}
+            width={PANEL.frame.w}
+            height={PANEL.frame.h}
+            rx={6}
+            fill="none"
+            stroke="#3A4A3A"
+            strokeWidth={3}
+          />
+          <rect
+            x={PANEL.bezel.x}
+            y={PANEL.bezel.y}
+            width={PANEL.bezel.w}
+            height={PANEL.bezel.h}
+            rx={4}
+            fill="#2E3E2E"
+            stroke="#2E3E2E"
+            strokeWidth={1}
+          />
 
           <g clipPath="url(#storyPanelClip)">
             {cells.map((cell) => (
               <motion.rect
-                className="story-cell"
                 key={cell.id}
                 x={cell.x}
                 y={cell.y}
-                width="78"
-                height="44"
-                rx="6"
-                animate={{ fill: cellAnimate }}
+                width={CELL_W}
+                height={CELL_H}
+                rx={PANEL.cellRx}
+                stroke="none"
+                animate={{ fill: cellFill }}
                 transition={{
-                  duration: isWashing ? 0.8 : 0.35,
-                  delay: isWashing ? cell.id * 0.055 : 0,
+                  duration: isWashing ? 0.4 : 0.35,
+                  delay: isWashing ? 0.5 + cell.col * 0.1 : 0,
                   ease: 'easeInOut',
                 }}
               />
             ))}
+
+            <motion.rect
+              x={PANEL.content.x}
+              y={PANEL.content.y}
+              width={PANEL.content.w}
+              height={PANEL.content.h}
+              fill="transparent"
+              filter="url(#dustTexture)"
+              animate={{ opacity: dustOpacity }}
+              transition={dustTransition}
+              pointerEvents="none"
+            />
 
             {dustMarks.map((mark) => (
               <motion.ellipse
@@ -157,50 +388,51 @@ function HeroStoryPanel({ beat, isRestarting, reducedMotion }) {
                 ry={mark.ry}
                 transform={`rotate(${mark.rotate} ${mark.cx} ${mark.cy})`}
                 animate={{ opacity: isDirty ? 0.5 : 0 }}
-                transition={{ duration: 0.6, ease: 'easeInOut' }}
+                transition={
+                  isWashing
+                    ? { duration: 0.4, delay: 0.9, ease: 'easeOut' }
+                    : { duration: 0.35, ease: 'easeInOut' }
+                }
               />
             ))}
 
             {isClean && !reducedMotion && (
               <motion.rect
-                className="story-shimmer"
-                x="-110"
-                y="-18"
-                width="54"
-                height="360"
+                x={PANEL.bezel.x}
+                y={PANEL.bezel.y}
+                width={PANEL.bezel.w}
+                height={PANEL.bezel.h}
+                rx={4}
                 fill="url(#cleanShimmer)"
-                transform="rotate(-22 0 0)"
-                animate={{ x: [-110, 410] }}
-                transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+                animate={{ x: [PANEL.bezel.x - PANEL.bezel.w, PANEL.bezel.x + PANEL.bezel.w * 2] }}
+                transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
+                pointerEvents="none"
               />
             )}
           </g>
 
           <AnimatePresence>
-            {isWashing &&
-              droplets.map((drop, index) => (
-                <motion.path
-                  className="water-drop"
-                  key={`${drop.x}-${drop.y}`}
-                  d={drop.d}
-                  initial={{ y: -40, opacity: 0 }}
-                  animate={{ y: 0, opacity: [0, 0.8, 0] }}
-                  exit={{ opacity: 0 }}
-                  transition={{
-                    duration: 0.8,
-                    delay: index * 0.14,
-                    ease: 'easeInOut',
-                  }}
-                  transform={`translate(${drop.x} ${drop.y})`}
-                />
-              ))}
+            {isWashing && !reducedMotion && (
+              <motion.g key="water-splash" initial={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <WaterStreams active />
+                <ImpactSplashes active />
+                <MistLayer active />
+              </motion.g>
+            )}
           </AnimatePresence>
+
+          {(isWashing || isClean) && !reducedMotion && (
+            <Rivulets active={isWashing} persistIntoClean={isClean} />
+          )}
 
           {isClean && !reducedMotion && (
             <>
               <motion.circle
                 className="wire-pulse"
                 r="4"
+                style={{
+                  offsetPath: `path('M${PANEL.frame.x + 20} ${PANEL.frame.y + PANEL.frame.h} C${PANEL.frame.x - 8} ${PANEL.frame.y + PANEL.frame.h + 38} ${PANEL.frame.x - 34} ${PANEL.frame.y + PANEL.frame.h + 60} ${PANEL.frame.x - 62} ${PANEL.frame.y + PANEL.frame.h + 108}')`,
+                }}
                 initial={{ offsetDistance: '0%', opacity: 0 }}
                 animate={{ offsetDistance: ['0%', '100%'], opacity: [0, 1, 0] }}
                 transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
@@ -208,6 +440,9 @@ function HeroStoryPanel({ beat, isRestarting, reducedMotion }) {
               <motion.circle
                 className="wire-pulse wire-pulse-right"
                 r="4"
+                style={{
+                  offsetPath: `path('M${PANEL.frame.x + PANEL.frame.w - 20} ${PANEL.frame.y + PANEL.frame.h} C${PANEL.frame.x + PANEL.frame.w + 11} ${PANEL.frame.y + PANEL.frame.h + 40} ${PANEL.frame.x + PANEL.frame.w + 42} ${PANEL.frame.y + PANEL.frame.h + 66} ${PANEL.frame.x + PANEL.frame.w + 76} ${PANEL.frame.y + PANEL.frame.h + 112}')`,
+                }}
                 initial={{ offsetDistance: '0%', opacity: 0 }}
                 animate={{ offsetDistance: ['0%', '100%'], opacity: [0, 1, 0] }}
                 transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut', delay: 0.32 }}
